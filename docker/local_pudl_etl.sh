@@ -21,7 +21,6 @@ function run_pudl_etl() {
         --loglevel DEBUG \
         $PUDL_SETTINGS_YML \
     && epacems_to_parquet \
-        --partition \
         --loglevel DEBUG \
     && pytest \
         --etl-settings $PUDL_SETTINGS_YML \

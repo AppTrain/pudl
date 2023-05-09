@@ -482,6 +482,7 @@ class Ferc2DbfToSqliteSettings(GenericDatasetSettings):
     Args:
         years: List of years to validate.
     """
+
     data_source: ClassVar[DataSource] = DataSource.from_id("ferc2")
     years: list[int] = [
         year for year in data_source.working_partitions["years"] if year <= 2020

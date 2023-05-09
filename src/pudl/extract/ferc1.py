@@ -241,7 +241,9 @@ class Ferc1DbfExtractor(FercDbfExtractor):
         This marks f1_responent_id.respondent_id as a primary key and adds foreign key
         constraints on all tables with respondent_id column.
         """
-        return add_key_constraints(meta, pk_table="f1_respondent_id", column="respondent_id")
+        return add_key_constraints(
+            meta, pk_table="f1_respondent_id", column="respondent_id"
+        )
 
     def postprocess(self):
         """Applies final transformations on the data in sqlite database.
@@ -341,12 +343,12 @@ def dbf2sqlite(context) -> None:
     logger.info(f"dbf2sqlite settings: {context.resources.ferc_to_sqlite_settings}")
 
     # TODO(rousik): this is disabled temporarily to run only ferc form 2.
-    #Ferc1DbfExtractor(
+    # Ferc1DbfExtractor(
     #    datastore=context.resources.datastore,
     #    settings=context.resources.ferc_to_sqlite_settings.ferc1_dbf_to_sqlite_settings,
     #    clobber=context.op_config["clobber"],
     #    output_path=context.op_config["pudl_output_path"],
-    #).execute()
+    # ).execute()
 
     Ferc2DbfExtractor(
         datastore=context.resources.datastore,

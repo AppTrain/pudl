@@ -119,11 +119,15 @@ class FercDbfArchive:
                 elif obj_type == "Field":
                     parent_id = row.get("PARENTID")
                     table_columns[parent_id].append(obj_name)
-            # Remap table ids to table names.
+            # Remap table ids to table names.pd
             self._table_schemas = {
                 table_names[tid]: cols for tid, cols in table_columns.items()
             }
         return self._table_schemas
+
+    def get_table_names(self) -> list[str]:
+        """Returns list of known table names."""
+        return self.get_db_schema().keys()
 
     def get_table_dbf(self, table_name: str) -> DBF:
         """Opens the DBF for a given table."""
@@ -494,6 +498,10 @@ class FercDbfExtractor:
 
     def load_table_data(self):
         """Loads all tables from fox pro database and writes them to sqlite."""
+        # Use new approach for ferc2
+        if self.DATASET == "ferc2":
+            return self.load_table_data_v2()
+
         partitions = [
             p
             for p in self.datastore.get_datapackage_descriptor(
@@ -526,6 +534,43 @@ class FercDbfExtractor:
                 dtype=coltypes,
                 index=False,
             )
+
+    def load_table_data_v2(self):
+        """This is next-gen of the data loading which loads tables in increments.
+
+        Rather than aggregating across all partitions before loading into sqlite, this
+        loads data into sqlite incrementally. This should be faster, and could be more
+        easily parallelized.
+        """
+        partitions = [
+            p
+            for p in self.datastore.get_datapackage_descriptor(
+                self.DATASET
+            ).get_partition_filters()
+            if self.is_valid_partition(p) and p.get("year", None) in self.settings.years
+        ]
+        logger.info(
+            f"Loading {self.DATASET} table data from {len(partitions)} partitions."
+        )
+        for par in partitions:
+            archive = self.dbf_reader.get_archive(**par)
+            for table_name in archive.get_table_names():
+                # TODO(rousik): code below could be run in parallel
+                new_df = archive.load_table(table_name)
+                if new_df is None or len(new_df) <= 0:
+                    continue
+                new_df = self.transform_table(table_name, new_df)
+                coltypes = {
+                    col.name: col.type for col in self.sqlite_meta.tables[table_name].c
+                }
+                new_df.to_sql(
+                    table_name,
+                    self.sqlite_engine,
+                    if_exists="append",
+                    chunksize=100000,
+                    dtype=coltypes,
+                    index=False,
+                )
 
     def finalize_schema(self, meta: sa.MetaData) -> sa.MetaData:
         """This method is called just before the schema is written to sqlite.
